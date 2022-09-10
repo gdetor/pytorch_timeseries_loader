@@ -16,7 +16,7 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 
 
-from numpy import load, float32, random, expand_dims, array
+from numpy import load, float32, random, expand_dims, array, zeros
 from numpy import nan_to_num, log, abs, sign, isnan, count_nonzero
 from scipy.stats import boxcox
 
@@ -58,7 +58,7 @@ class TimeseriesLoader(Dataset):
                  train=True,
                  data_split_perc=0.7,
                  entire_seq=False,
-                 sequence_length=10,
+                 sequence_len=10,
                  horizon=1,
                  dim_size=1,
                  scale=False,
@@ -84,9 +84,11 @@ class TimeseriesLoader(Dataset):
         training/testing (float)
         @param entire_seq When enabled the iterator will return the entire
         target sequence and not only one single target point (bool)
-        @param sequence_length The length of the sequence used as input (int)
+        @param sequence_len The length of the sequence used as input. How many
+        data points from the past (historical data) will be used for
+        training/testing (int)
         @param horizon How many points in the future the iterator will return
-        as target (int)
+        as target sequence - forecasting horizon (int)
         @param dim_size The dimension of the features (univariate time series
         have dim=1, mutlivariate dim=n) (int)
         @param scale Normalizes the data into interval scale_intvl (bool)
@@ -137,7 +139,7 @@ class TimeseriesLoader(Dataset):
         else:
             data = data[ntrain_data:]
         self.shape = data.shape             # Keep data shape
-        self.win_len = sequence_length      # Prediction horizon
+        self.win_len = sequence_len         # Sequence length (historical data)
 
         # Add white noise to the data
         if noise is True:
@@ -188,7 +190,7 @@ class TimeseriesLoader(Dataset):
             self.data = muLaw(self.data, self.mu)
 
         # Final data tensor length
-        self.size = len(self.data) - (sequence_length + 1)
+        self.size = len(self.data) - (sequence_len + 1)
 
     def get_scaler(self):
         """! Returns the MInMaxScaler object of scikit-learn in case the user
@@ -237,7 +239,10 @@ class TimeseriesLoader(Dataset):
         of Pytorch upon request during training/testing.
 
         @return A tuple (x, y, idx) where x is the input data, y is the target
-        and idx the time index
+        and idx the time index. The shape of the tensors is
+        (batch_size, sequence_len, dim_size) or
+        (batch_size, horizon, dim_size) in case the entire_seq flag is False
+        and not the entire sequence is needed.
         """
         if is_tensor(idx):
             idx = idx.tolist()
@@ -259,3 +264,78 @@ class TimeseriesLoader(Dataset):
             x = expand_dims(x, axis=1)
             y = expand_dims(y, axis=1)
         return x, y, idx
+
+
+def split_timeseries_data(data, sequence_len=12, horizon=1):
+    """! This function serves the simple purpose of splitting the time
+    series data into training and testing sets. It accepts the raw data
+    in a Numpy array and returns Torch tensors with the training and
+    testing data.
+
+    Attention: The user cannot use this function along with the DataLoader
+    of Pytorch. The user has to compute the step of iterations based on the
+    batch size and then use the tensors provided by this function in a "for
+    loop".
+
+    Example:
+    X_train, y_train, X_test, y_test = split_timeseries_data(data)
+
+    step = int(X_train.shape[0] // batch_size)
+
+    for e in range(epochs):
+        for i in range(step):
+            x = X_train[i*batch_size:(i+1) * batch_size]
+            y = y_train[i*batch_size:(i+1) * batch_size]
+
+    @param sequence_len The length of the input sequence (past data) (int)
+    @param horizon How many data points into the future should the target
+    vector contains
+
+    @note The user is responsible for normalizing, standardizing, or
+    transforming the raw data. This function does not perform any such
+    transformation on the data.
+
+    @return A Python tuple with the X_train, y_train (training input/targets)
+    and X_test, y_test (testing input / targets). The tensors are of
+    shape (n_samples, sequence_len, num_features).
+    """
+    if data.ndim == 1:
+        m = data.shape[0]
+        n = 1
+    else:
+        m, n = data.shape
+    n_train = int(m * 0.8)
+    n_test = m - n_train
+
+    data_train = data[:n_train].astype('float32')
+    data_test = data[n_train:].astype('float32')
+
+    train_size = n_train - sequence_len - horizon
+    X_train = zeros((train_size, sequence_len, n), 'float32')
+    y_train = zeros((train_size, sequence_len, n), 'float32')
+    if n == 1:
+        for i in range(n_train-sequence_len-horizon):
+            X_train[i, :, 0] = data_train[i:i + sequence_len]
+            y_train[i, :, 0] = data_train[i+horizon:i+sequence_len+horizon]
+            # y_train[i, :, 0] = data_train[seq_len+i:seq_len+i+horizon]
+    else:
+        for i in range(n_train-sequence_len-horizon):
+            X_train[i] = data_train[i:i + sequence_len]
+            y_train[i] = data_train[i + horizon:i + sequence_len + horizon]
+    X_train = from_numpy(X_train)
+    y_train = from_numpy(y_train)
+
+    test_size = n_test - sequence_len - horizon
+    X_test = zeros((test_size, sequence_len, n), 'float32')
+    y_test = zeros((test_size, sequence_len, n), 'float32')
+    if n == 1:
+        for i in range(n_test-sequence_len-horizon):
+            X_test[i, :, 0] = data_test[i:i + sequence_len]
+            y_test[i, :, 0] = data_test[i + horizon:i + sequence_len + horizon]
+    else:
+        for i in range(n_test-sequence_len-horizon):
+            X_test[i] = data_test[i:sequence_len + i]
+            y_test[i] = data_test[i + horizon:i + sequence_len + horizon]
+    X_test = from_numpy(X_test)
+    y_test = from_numpy(y_test)
+    return X_train, y_train, X_test, y_test

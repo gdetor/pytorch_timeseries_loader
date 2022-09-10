@@ -35,7 +35,7 @@ if __name__ == '__main__':
                           data=Y,
                           entire_seq=True,
                           power_transform=True,
-                          sequence_length=seq_len,
+                          sequence_len=seq_len,
                           horizon=horizon,
                           dim_size=1)
     ts_data = DataLoader(ts, batch_size=batch_size, shuffle=False,
