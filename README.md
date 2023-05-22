@@ -71,8 +71,33 @@ the `X_train`, `y_train` (training input/targets) and `X_test`, `y_test`
 (testing input / targets). The tensors are of shape 
 `(n_samples, sequence_len, num_features)`.
 
+
+## Data Augmentation - Transforms
+
+Along with the TimeSeriesLoader class, we provide some fundamental data
+augmentation transformations for time series, such as jitter, scale,
+permutation, flipping, time warping, and magnitude warping.
+The enterprising user can find many more transforms implemented in Python
+[here]https://github.com/uchidalab/time_series_augmentation/blob/master/utils/augmentation.py)
+and can read more in [1] and [2]. 
+All the transforms provided here are implemented in the file **transforms.py**
+as Python class that can be used with Python (or Pytorch). 
+
+
+
 ## Dependencies
   - Numpy
   - Scipy
   - Torch
   - Sklearn
+
+
+## References
+
+  1. B. K. Iwana, and S. Uchida. *An empirical survey of data augmentation
+  for time series classification with neural networks.* Plos one 16.7 (2021):
+      e0254841.
+  2. T. T. Um, et al. "Data augmentation of wearable sensor data for
+  parkinson’s disease monitoring using convolutional neural networks."
+  Proceedings of the 19th ACM international conference on multimodal
+  interaction. 2017.

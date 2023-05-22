@@ -68,7 +68,9 @@ class TimeseriesLoader(Dataset):
                  noise=False,
                  var=1.0,
                  mulaw=False,
-                 mu=255):
+                 mu=255,
+                 transforms=None,
+                 transform_prob=0.5):
         """! Constructor method of TimeseriesLoader class. It performs several
         tasks to pre-process the data such as NaNs detection and removal,
         normalization, standarization, power-transformation, and mu-law
@@ -100,6 +102,8 @@ class TimeseriesLoader(Dataset):
         @param var  The variance of the added white noise
         @param mulaw Performs a mu-law transformation (bool)
         @param mu The parameter mu of the mu-law
+        @param transforms
+        @param transform_prob #FIXME
 
         @note The user can either specify the path where the data are stored
         as numpy files or they can directly provide a numpy array with the
@@ -116,6 +120,16 @@ class TimeseriesLoader(Dataset):
         self.scaler = None
         self.standarized = None
         self.boxcox = None
+
+        if transforms is not None:
+            self.augmentation = True
+            self.transforms = transforms
+            self.transform_prob = transform_prob
+            if isinstance(self.transforms, list) is False:
+                print("Transformation not found")
+                exit()
+        else:
+            self.augmentation = False
 
         # Load the data
         if data_path is None:
@@ -192,6 +206,12 @@ class TimeseriesLoader(Dataset):
         # Final data tensor length
         self.size = len(self.data) - (sequence_len + 1)
 
+    def apply_transforms(self, x, y):
+        for trans in self.transforms:
+            if random.uniform(0, 1) < self.transform_prob:
+                x, y = trans([x, y])
+        return x, y
+
     def get_scaler(self):
         """! Returns the MInMaxScaler object of scikit-learn in case the user
         needs to inverse the normalization later.
@@ -263,7 +283,10 @@ class TimeseriesLoader(Dataset):
         if self.data.ndim == 1:
             x = expand_dims(x, axis=1)
             y = expand_dims(y, axis=1)
-        return x, y, idx
+
+        if self.augmentation:
+            x, y = self.apply_transforms(x, y)
+        return x.copy(), y.copy(), idx
 
 
 def split_timeseries_data(data, sequence_len=12, horizon=1):

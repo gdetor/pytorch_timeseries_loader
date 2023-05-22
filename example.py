@@ -20,6 +20,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pylab as plt
 
 from timeseries_loader import TimeseriesLoader
+# from transforms import TimeWarp, MagnitudeWarp, Scale, Jitter
 
 
 if __name__ == '__main__':
@@ -37,16 +38,20 @@ if __name__ == '__main__':
                           power_transform=True,
                           sequence_len=seq_len,
                           horizon=horizon,
+                          # transforms=[Jitter()],
+                          transforms=None,
                           dim_size=1)
+
     ts_data = DataLoader(ts, batch_size=batch_size, shuffle=False,
                          drop_last=True)
 
     gen = iter(ts_data)
     for i in range(10):
-        x, y, idx = gen.next()
+        x, y, idx = next(gen)
         print(x.shape, y.shape, idx)
 
     xx = np.arange(12)
+    plt.plot(xx, Y[9:9+seq_len], 'green', ms=10, label="raw signal")
     plt.plot(xx, x[0, :, 0], '-kx', ms=10, label='input x')
     xx = np.arange(1, 13)
     plt.plot(xx, y[0, :, 0], '-ro', label='target y')
