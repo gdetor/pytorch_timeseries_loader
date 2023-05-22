@@ -83,6 +83,28 @@ and can read more in [1] and [2].
 All the transforms provided here are implemented in the file **transforms.py**
 as Python class that can be used with Python (or Pytorch). 
 
+The user can pass any transform (or many) as an argument (list) to the
+**TimeSeriesLoader** class. For instance, 
+```python
+
+ts = TimeseriesLoader(data_path,
+                      data=Y,
+                      entire_seq=True,
+                      power_transform=True,
+                      sequence_len=seq_len,
+                      horizon=horizon,
+                      transforms=[Jitter(sigma=0.5),
+                      			  Permutation()] 	# Pass the transforms as a list
+                      			  				    # or None if you don't want to apply any data augmentation
+                      transform_prob=0.5,
+                      dim_size=1)
+```
+
+Internally, the class will draw a random number from a uniform distribution
+in [0, 1) and if that number is smaller than a given probability (transform_prob)
+will apply the transform(s). 
+
+
 
 
 ## Dependencies

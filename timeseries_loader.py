@@ -102,8 +102,11 @@ class TimeseriesLoader(Dataset):
         @param var  The variance of the added white noise
         @param mulaw Performs a mu-law transformation (bool)
         @param mu The parameter mu of the mu-law
-        @param transforms
-        @param transform_prob #FIXME
+        @param transforms A list of data augmentation transforms (e.g.,
+        [Jitter(), Scale(sigma=0.2). By default is None and no data
+        augmentation is enabled.
+        @param transform_prob A probability with which a data augmentation
+        transform is applied to the raw data.
 
         @note The user can either specify the path where the data are stored
         as numpy files or they can directly provide a numpy array with the
@@ -207,6 +210,13 @@ class TimeseriesLoader(Dataset):
         self.size = len(self.data) - (sequence_len + 1)
 
     def apply_transforms(self, x, y):
+        """! Applies a data augmentation transform on the raw data. The
+        augmentation occurs when a random number drawn from a uniform
+        distribution in [0, 1) is smaller than a predefined probability
+        (transform_prob). Otherwise, the data remain unchanged.
+
+        @return The augmented (transformed) inputs (x) and the targets (y).
+        """
         for trans in self.transforms:
             if random.uniform(0, 1) < self.transform_prob:
                 x, y = trans([x, y])
