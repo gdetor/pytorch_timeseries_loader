@@ -78,7 +78,7 @@ Along with the TimeSeriesLoader class, we provide some fundamental data
 augmentation transformations for time series, such as jitter, scale,
 permutation, flipping, time warping, and magnitude warping.
 The enterprising user can find many more transforms implemented in Python
-[here]https://github.com/uchidalab/time_series_augmentation/blob/master/utils/augmentation.py)
+[here]https://github.com/uchidalab/time_series_augmentation)
 and can read more in [1] and [2]. 
 All the transforms provided here are implemented in the file **transforms.py**
 as Python class that can be used with Python (or Pytorch). 
