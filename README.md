@@ -94,8 +94,7 @@ ts = TimeseriesLoader(data_path,
                       sequence_len=seq_len,
                       horizon=horizon,
                       transforms=[Jitter(sigma=0.5),
-                      			  Permutation()] 	# Pass the transforms as a list
-                      			  				    # or None if you don't want to apply any data augmentation
+                      			  Permutation()],  # Pass the transforms as a list or None if you don't want to apply any data augmentation
                       transform_prob=0.5,
                       dim_size=1)
 ```
