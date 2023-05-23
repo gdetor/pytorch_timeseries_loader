@@ -33,11 +33,7 @@ class Jitter:
         assert x.shape == y.shape
 
         epsilon = np.random.normal(loc=0.0, scale=self.sigma, size=x.shape)
-
-        x += epsilon
-        y += epsilon
-
-        return x, y
+        return x + epsilon, y + epsilon
 
 
 class Scale:
@@ -51,12 +47,10 @@ class Scale:
         x, y = sample
         assert x.shape == y.shape
 
-        scale_factor = np.random.normal(0, self.sigma, (x.shape))
-
-        x *= scale_factor
-        y *= scale_factor
-
-        return x, y
+        scale_factor = np.random.normal(loc=1,
+                                        scale=self.sigma,
+                                        size=(x.shape[1]),)
+        return x * scale_factor, y * scale_factor
 
 
 class Permutation:
@@ -65,26 +59,30 @@ class Permutation:
 
     Temporal dependencies are not conserved
     """
-
-    def __init__(self, sequence_len=1, num_intervals=3):
-        if num_intervals > 5:
-            num_intervals = 5
-        if num_intervals <= 1:
+    def __init__(self, num_segments=3):
+        if num_segments > 5:
+            num_segments = 5
+        if num_segments <= 1:
             print("meaningless permutation transform")
             exit()
-        self.interval_len = int(sequence_len // num_intervals)
-        self.index = np.arange(sequence_len).reshape(-1, self.interval_len)
+        self.num_segments = num_segments
 
     def __call__(self, sample):
         x, y = sample
         assert x.shape == y.shape
 
-        np.random.shuffle(self.index)
+        sequence_len, n_features = x.shape[0], x.shape[1]
+        index = np.arange(sequence_len)
 
-        x = x[self.index.flatten()]
-        y = y[self.index.flatten()]
-
-        return x, y
+        x_perm, y_perm = np.zeros_like(x), np.zeros_like(y)
+        for i in range(n_features):
+            segments = np.array(np.array_split(index, self.num_segments),
+                                dtype=object)
+            segments = np.random.permutation(segments)
+            permuted_index = np.concatenate(segments).astype('i')
+            x_perm[:, i] = x[permuted_index, i]
+            y_perm[:, i] = y[permuted_index, i]
+        return x_perm, y_perm
 
 
 class Rotation:
@@ -98,18 +96,18 @@ class Rotation:
         x, y = sample
         assert x.shape == y.shape
 
-        if x.shape[-1] == 1:
-            x = x[::-1, :]
-            y = y[::-1, :]
+        flip = np.random.choice([-1, 1], size=(x.shape[1],)).reshape(1, -1)
+        rotate_axis = np.arange(x.shape[1])
+        np.random.shuffle(rotate_axis)
 
-        return x, y
+        return flip * x[:, rotate_axis], flip * y[:, rotate_axis]
 
 
 class MagnitudeWarp:
     """
     Time series augmentation by using the method of magnitude warping.
     """
-    def __init__(self, sigma=0.1, num_knots=12):
+    def __init__(self, sigma=0.1, num_knots=5):
         self.sigma = sigma
         self.num_knots = num_knots
 
@@ -130,18 +128,14 @@ class MagnitudeWarp:
                                        knots[:, dim])(X)
                            for dim in range(n_features)]).T
 
-        # x_ = x * warper
-        # y_ = y * warper
-        x *= warper
-        y *= warper
-        return x, y
+        return x * warper, y * warper
 
 
 class TimeWarp:
     """
     Time series augmentation by using the method of time warping.
     """
-    def __init__(self, sigma=0.2, num_knots=8):
+    def __init__(self, sigma=0.2, num_knots=5):
         self.sigma = sigma
         self.num_knots = num_knots
 
@@ -158,15 +152,44 @@ class TimeWarp:
         steps = (np.ones((n_features, 1)) * (np.linspace(0,
                                                          sequence_len-1.,
                                                          self.num_knots+2))).T
+        x_, y_ = np.zeros_like(x), np.zeros_like(y)
         for dim in range(n_features):
             time_warp = CubicSpline(steps[:, dim],
                                     steps[:, dim]
                                     * random_warps[:, dim])(X)
             scale = (sequence_len - 1) / time_warp[-1]
-            x[:, dim] = np.interp(X, np.clip(scale * time_warp,
-                                  0,
-                                  sequence_len - 1), x[:, dim]).T
-            y[:, dim] = np.interp(X, np.clip(scale * time_warp,
-                                  0,
-                                  sequence_len - 1), y[:, dim]).T
-        return x, y
+            x_[:, dim] = np.interp(X, np.clip(scale * time_warp,
+                                   0,
+                                   sequence_len - 1), x[:, dim]).T
+            y_[:, dim] = np.interp(X, np.clip(scale * time_warp,
+                                   0,
+                                   sequence_len - 1), y[:, dim]).T
+        return x_, y_
+
+
+if __name__ == "__main__":
+    import matplotlib.pylab as plt
+
+    y = np.array([0.0, 0.5, 1.0, 1.5, 1.0, 1.2, 0.8, 1.2, 0.7, 0.1, 0.1, 0.1,
+                  2.0, 1.5, 1.1, 0.1])
+    t = np.arange(len(y))
+
+    x = np.linspace(0, len(y), 1000)
+    yp = np.interp(x, t, y)
+
+    plt.figure()
+    plt.plot(yp)
+
+    B = yp.reshape(10, 100).T
+    plt.figure()
+    plt.plot(B[:, 5])
+
+    trans = Rotation()
+    yt, _ = trans([B[:, 0].reshape(-1, 1),
+                   B[:, 0].reshape(-1, 1)])
+
+    plt.figure()
+    plt.plot(B[:, 0], label="original")
+    plt.plot(yt[:, 0], label="transformed")
+    plt.legend()
+    plt.show()
