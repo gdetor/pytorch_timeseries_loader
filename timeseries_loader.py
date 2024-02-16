@@ -302,7 +302,8 @@ class TimeseriesLoader(Dataset):
 def split_timeseries_data(data,
                           sequence_len=12,
                           horizon=1,
-                          univariate=True):
+                          univariate=True,
+                          torch=True):
     """! This function serves the simple purpose of splitting the time
     series data into training and testing sets. It accepts the raw data
     in a Numpy array and returns Torch tensors with the training and
@@ -373,8 +374,9 @@ def split_timeseries_data(data,
         X_train = X_train[:, :, 0]
         y_train = y_train[:, -horizon:, 0]
 
-    X_train = from_numpy(X_train)
-    y_train = from_numpy(y_train)
+    if torch:
+        X_train = from_numpy(X_train)
+        y_train = from_numpy(y_train)
 
     test_size = n_test - sequence_len - horizon
     X_test = zeros((test_size, sequence_len, n), 'float32')
@@ -391,6 +393,8 @@ def split_timeseries_data(data,
     if univariate:
         X_test = X_test[:, :, 0]
         y_test = y_test[:, -horizon:, 0]
-    X_test = from_numpy(X_test)
-    y_test = from_numpy(y_test)
+
+    if torch:
+        X_test = from_numpy(X_test)
+        y_test = from_numpy(y_test)
     return X_train, y_train, X_test, y_test
