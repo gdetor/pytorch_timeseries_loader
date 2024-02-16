@@ -389,8 +389,8 @@ def split_timeseries_data(data,
             y_test[i] = data_test[i + horizon:i + sequence_len + horizon]
 
     if univariate:
-        X_test = X_train[:, :, 0]
-        y_test = y_train[:, -horizon:, 0]
+        X_test = X_test[:, :, 0]
+        y_test = y_test[:, -horizon:, 0]
     X_test = from_numpy(X_test)
     y_test = from_numpy(y_test)
     return X_train, y_train, X_test, y_test
