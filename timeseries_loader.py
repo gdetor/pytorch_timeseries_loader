@@ -299,18 +299,16 @@ class TimeseriesLoader(Dataset):
         return x.copy(), y.copy(), idx
 
 
-def split_timeseries_data(data, sequence_len=12, horizon=1):
+def split_timeseries_data(data,
+                          sequence_len=12,
+                          horizon=1,
+                          univariate=True):
     """! This function serves the simple purpose of splitting the time
     series data into training and testing sets. It accepts the raw data
     in a Numpy array and returns Torch tensors with the training and
     testing data.
 
-    Attention: The user cannot use this function along with the DataLoader
-    of Pytorch. The user has to compute the step of iterations based on the
-    batch size and then use the tensors provided by this function in a "for
-    loop".
-
-    Example:
+    Example 1:
     X_train, y_train, X_test, y_test = split_timeseries_data(data)
 
     step = int(X_train.shape[0] // batch_size)
@@ -319,6 +317,22 @@ def split_timeseries_data(data, sequence_len=12, horizon=1):
         for i in range(step):
             x = X_train[i*batch_size:(i+1) * batch_size]
             y = y_train[i*batch_size:(i+1) * batch_size]
+
+    The user can use the tensors (X_train, y_train) and (X_test, y_test) with
+    the DataLoader class of Pytorch. To do so, the user must first obtain the
+    tensors using the function split_timeseries_data() and then use the
+    TensorDataset method of Pytorch. Then, they can pass the new tensors as an
+    argument to the DataLoader.
+
+    Example 2:
+    X_train, y_train, X_test, y_test = split_timeseries_data(data)
+
+    train_dataset = TensorDataset(X_train, y_train)
+    train_dataloader = DataLoader(train_dataset,
+                                  batch_size=32,
+                                  shuffle=True,
+                                  drop_last=True,
+                                  pin_memory=True)
 
     @param sequence_len The length of the input sequence (past data) (int)
     @param horizon How many data points into the future should the target
@@ -355,6 +369,10 @@ def split_timeseries_data(data, sequence_len=12, horizon=1):
         for i in range(n_train-sequence_len-horizon):
             X_train[i] = data_train[i:i + sequence_len]
             y_train[i] = data_train[i + horizon:i + sequence_len + horizon]
+    if univariate:
+        X_train = X_train[:, :, 0]
+        y_train = y_train[:, -horizon:, 0]
+
     X_train = from_numpy(X_train)
     y_train = from_numpy(y_train)
 
@@ -369,6 +387,10 @@ def split_timeseries_data(data, sequence_len=12, horizon=1):
         for i in range(n_test-sequence_len-horizon):
             X_test[i] = data_test[i:sequence_len + i]
             y_test[i] = data_test[i + horizon:i + sequence_len + horizon]
+
+    if univariate:
+        X_test = X_train[:, :, 0]
+        y_test = y_train[:, -horizon:, 0]
     X_test = from_numpy(X_test)
     y_test = from_numpy(y_test)
     return X_train, y_train, X_test, y_test

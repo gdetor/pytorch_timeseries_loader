@@ -49,9 +49,7 @@ Along with the Pytorch class **TimeseriesLoader**, we provide a simpler
 function called **split_timeseries_data** which takes as input raw time series
 data along with the length of the historical (past) data sequence and the
 forecasting horizon, and returns a Python tuple of training and testing 
-torch tensors. However, the user cannot use this function along with Pytorch's
-DataLoader and thus they have to do a little more work in the training/testing
-loops. 
+torch tensors. 
 
 ```python
     X_train, y_train, X_test, y_test = split_timeseries_data(data)
@@ -63,6 +61,25 @@ loops.
             x = X_train[i*batch_size:(i+1) * batch_size]
             y = y_train[i*batch_size:(i+1) * batch_size]
 ```
+
+Another way the user can utilize the function `split_timeseries_data` is to
+use the tensors `(X_train, y_train)` and `(X_test, y_test)` with the 
+`DataLoader` class of Pytorch. To do so, the user must first obtain the tensors
+using the function `split_timeseries_data()` and then use the `TensorDataset`
+method of Pytorch. Then, they can pass the new tensors as an argument to the
+`DataLoader`.
+
+```python
+X_train, y_train, X_test, y_test = split_timeseries_data(data)
+
+train_dataset = TensorDataset(X_train, y_train)
+train_dataloader = DataLoader(train_dataset,
+                              batch_size=32,
+                              shuffle=True,
+                              drop_last=True,
+                              pin_memory=True)
+```
+
 
 Furthermore, the user is responsible for normalizing, standardizing, or 
 transforming their raw data. The function *split_timeseries_data* does not
