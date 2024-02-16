@@ -337,7 +337,11 @@ def split_timeseries_data(data,
 
     @param sequence_len The length of the input sequence (past data) (int)
     @param horizon How many data points into the future should the target
-    vector contains
+    vector contains (int)
+    @param univariate If enabled, the dimension of the features is removed from
+    the tensors (bool). The default value is False
+    @param torch If enabled, the Numpy vectors will be converted to torch
+    tensors (bool). The default value is True
 
     @note The user is responsible for normalizing, standardizing, or
     transforming the raw data. This function does not perform any such
