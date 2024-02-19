@@ -363,6 +363,8 @@ def split_timeseries_data(data,
     data_test = data[n_train:].astype('float32')
 
     train_size = n_train - sequence_len - horizon
+    if train_size <= sequence_len:
+        raise ValueError("Sequence length is too large!")
     X_train = zeros((train_size, sequence_len, n), 'float32')
     y_train = zeros((train_size, sequence_len, n), 'float32')
     if n == 1:
@@ -383,6 +385,8 @@ def split_timeseries_data(data,
         y_train = from_numpy(y_train)
 
     test_size = n_test - sequence_len - horizon
+    if test_size <= sequence_len:
+        raise ValueError("Sequence length is too large!")
     X_test = zeros((test_size, sequence_len, n), 'float32')
     y_test = zeros((test_size, sequence_len, n), 'float32')
     if n == 1:
