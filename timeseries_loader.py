@@ -376,6 +376,7 @@ def split_timeseries_data(data,
         for i in range(n_train-sequence_len-horizon):
             X_train[i] = data_train[i:i + sequence_len]
             y_train[i] = data_train[i + horizon:i + sequence_len + horizon]
+
     if univariate:
         X_train = X_train[:, :, 0]
         y_train = y_train[:, -horizon:, 0]
