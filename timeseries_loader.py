@@ -302,7 +302,7 @@ class TimeseriesLoader(Dataset):
 def split_timeseries_data(data,
                           sequence_len=12,
                           horizon=1,
-                          univariate=True,
+                          univariate=False,
                           torch=True):
     """! This function serves the simple purpose of splitting the time
     series data into training and testing sets. It accepts the raw data
@@ -349,7 +349,8 @@ def split_timeseries_data(data,
 
     @return A Python tuple with the X_train, y_train (training input/targets)
     and X_test, y_test (testing input / targets). The tensors are of
-    shape (n_samples, sequence_len, num_features).
+    shape (n_samples, sequence_len, num_features). When univariate is True the
+    tensors are of shape (batch_size, sequence_len).
     """
     if data.ndim == 1:
         m = data.shape[0]
