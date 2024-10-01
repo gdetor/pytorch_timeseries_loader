@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 
+from typing import Tuple
 
-from numpy import load, float32, random, expand_dims, array, zeros
-from numpy import nan_to_num, log, abs, sign, isnan, count_nonzero
+import numpy as np
 from scipy.stats import boxcox
 
-from torch import from_numpy, is_tensor
+import torch
 from torch.utils.data import Dataset
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -33,7 +33,7 @@ def muLaw(x, mu=255):
     @param x Input vector (ndarray)
     @param mu The mu compression parameter (int)
     """
-    tmp = sign(x) * log(1 + mu * abs(x)) / log(1 + mu)
+    tmp = np.sign(x) * np.log(1 + mu * abs(x)) / np.log(1 + mu)
     return tmp
 
 
@@ -44,7 +44,7 @@ def invMuLaw(y, mu=255):
     @param y Input vector with values in [-1, 1] (ndarray)
     @param mu The mu compression parameter (int)
     """
-    tmp = sign(y) * (((1 + mu)**abs(y) - 1.0) / mu)
+    tmp = np.sign(y) * (((1 + mu)**abs(y) - 1.0) / mu)
     return tmp
 
 
@@ -53,24 +53,24 @@ class TimeseriesLoader(Dataset):
     provides, as well, the basic transformations for time series data sets.
     """
     def __init__(self,
-                 data_path=None,
-                 data=None,
-                 train=True,
-                 data_split_perc=0.7,
-                 entire_seq=False,
-                 sequence_len=10,
-                 horizon=1,
-                 dim_size=1,
-                 scale=False,
-                 scale_intvl=[0, 1],
-                 standarize=False,
-                 power_transform=False,
-                 noise=False,
-                 var=1.0,
-                 mulaw=False,
-                 mu=255,
+                 data_path: str = None,
+                 data: np.ndarray = None,
+                 train: bool = True,
+                 data_split_perc: float = 0.7,
+                 whole_seq: bool = False,
+                 sequence_len: int = 10,
+                 horizon: int = 1,
+                 n_features: int = 1,
+                 scale: bool = False,
+                 scale_intvl: Tuple[float] = [0, 1],
+                 standarize: bool = False,
+                 power_transform: bool = False,
+                 noise: bool = False,
+                 var: float = 1.0,
+                 mulaw: bool = False,
+                 mu: int = 255,
                  transforms=None,
-                 transform_prob=0.5):
+                 transform_prob: float = 0.5):
         """! Constructor method of TimeseriesLoader class. It performs several
         tasks to pre-process the data such as NaNs detection and removal,
         normalization, standarization, power-transformation, and mu-law
@@ -84,15 +84,15 @@ class TimeseriesLoader(Dataset):
         @param train It determines if the training data will be used (bool)
         @param data_split_perc  How many data points are used for
         training/testing (float)
-        @param entire_seq When enabled the iterator will return the entire
+        @param whole_seq When enabled the iterator will return the whole
         target sequence and not only one single target point (bool)
         @param sequence_len The length of the sequence used as input. How many
         data points from the past (historical data) will be used for
         training/testing (int)
         @param horizon How many points in the future the iterator will return
         as target sequence - forecasting horizon (int)
-        @param dim_size The dimension of the features (univariate time series
-        have dim=1, mutlivariate dim=n) (int)
+        @param n_features The number of features (univariate time series
+        have n_features=1, mutlivariates n_features=n) (int)
         @param scale Normalizes the data into interval scale_intvl (bool)
         @param scale_intvl Normalization interval (list)
         @param standarize   Standarizes the data (bool)
@@ -115,7 +115,7 @@ class TimeseriesLoader(Dataset):
         @return void
         """
 
-        self.ent_sequence = entire_seq
+        self.whole_seq = whole_seq
         self.horizon = horizon
         self.split_perc = data_split_perc
         self.mu = mu
@@ -136,34 +136,31 @@ class TimeseriesLoader(Dataset):
 
         # Load the data
         if data_path is None:
-            data = array(data).astype(float32)
+            self.data = np.array(data).astype(np.float32)
         else:
-            data = load(data_path).astype(float32)
-        if data.ndim != 1:
-            data = data[:, :dim_size]
+            self.data = np.load(data_path).astype(np.float32)
+        if self.data.ndim != 1:
+            self.data = self.data[:, :n_features]
 
         # Check for NaNs
-        if count_nonzero(isnan(data)):
+        if np.count_nonzero(np.isnan(data)):
             print("WARNING: NaN detected in the raw data!")
 
         # Remove NaNs
-        data = nan_to_num(data, nan=0.0).astype(float32)
+        self.data = np.nan_to_num(data, nan=0.0).astype(np.float32)
 
         # Split the data (train / test)
-        ntrain_data = int(data.shape[0] * self.split_perc)
+        self.ntrain_data = int(data.shape[0] * self.split_perc)
         if train is True:
-            data = data[:ntrain_data]
+            self.data = self.data[:self.ntrain_data]
         else:
-            data = data[ntrain_data:]
-        self.shape = data.shape             # Keep data shape
+            self.data = self.data[self.ntrain_data:]
+        self.shape = self.data.shape        # Keep data shape
         self.win_len = sequence_len         # Sequence length (historical data)
 
         # Add white noise to the data
         if noise is True:
-            data += random.normal(0, var, data.shape)
-
-        # Convert data Numpy array to Torch Tensor
-        self.data = from_numpy(data)
+            self.data += np.random.normal(0, var, data.shape)
 
         # Ensure the data are positive when Box-Cox transform is enabled
         if scale is False and power_transform is True:
@@ -183,7 +180,7 @@ class TimeseriesLoader(Dataset):
                 self.data = self.data[:, 0]
             else:
                 self.data = self.scaler.fit_transform(self.data)
-            self.data = self.data.astype(float32)
+            self.data = self.data.astype(np.float32)
 
         # Standarize the data (x - mu) /  sigma
         if standarize is True:
@@ -194,7 +191,7 @@ class TimeseriesLoader(Dataset):
                 self.data = self.data[:, 0]
             else:
                 self.data = self.standarizer.fit_transform(self.data)
-            self.data = self.data.astype(float32)
+            self.data = self.data.astype(np.float32)
 
         # Apply a Box-Cox (power) transform
         if power_transform is True:
@@ -206,10 +203,15 @@ class TimeseriesLoader(Dataset):
         if mulaw is True:
             self.data = muLaw(self.data, self.mu)
 
+        # Convert data Numpy array to Torch Tensor
+        self.data = torch.from_numpy(data)
+
         # Final data tensor length
         self.size = len(self.data) - (sequence_len + 1)
 
-    def apply_transforms(self, x, y):
+    def apply_transforms(self,
+                         x: torch.tensor,
+                         y: torch.tensor) -> Tuple[torch.tensor]:
         """! Applies a data augmentation transform on the raw data. The
         augmentation occurs when a random number drawn from a uniform
         distribution in [0, 1) is smaller than a predefined probability
@@ -218,7 +220,7 @@ class TimeseriesLoader(Dataset):
         @return The augmented (transformed) inputs (x) and the targets (y).
         """
         for trans in self.transforms:
-            if random.uniform(0, 1) < self.transform_prob:
+            if np.random.uniform(0, 1) < self.transform_prob:
                 x, y = trans([x, y])
         return x, y
 
@@ -238,7 +240,7 @@ class TimeseriesLoader(Dataset):
         """
         return self.standarizer
 
-    def get_boxcox(self):
+    def get_boxcox(self) -> float:
         """! Returns the lambda (that maximizes the log-likelihood function) of
         the Box-Cox power transformation.
 
@@ -247,21 +249,21 @@ class TimeseriesLoader(Dataset):
         """
         return self.boxcox
 
-    def get_mu(self):
+    def get_mu(self) -> int:
         """! Returns the mu of the mu-law transformation.
 
         @return self.mu The used mu value of the mu-law algorithm (int)
         """
         return self.mu
 
-    def __len__(self):
+    def __len__(self) -> int:
         """! Returns the length of data Tensor.
 
         @return len(self.data) The temporal length of the raw data
         """
         return len(self.data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[torch.tensor, torch.tensor, int]:
         """! Gets an item from Tensor data. Slide the window based on the
         horizon.
 
@@ -270,16 +272,16 @@ class TimeseriesLoader(Dataset):
 
         @return A tuple (x, y, idx) where x is the input data, y is the target
         and idx the time index. The shape of the tensors is
-        (batch_size, sequence_len, dim_size) or
-        (batch_size, horizon, dim_size) in case the entire_seq flag is False
-        and not the entire sequence is needed.
+        (batch_size, sequence_len, n_features) or
+        (batch_size, horizon, n_features) in case the whole_seq flag is False
+        and not the whole sequence is needed.
         """
-        if is_tensor(idx):
+        if torch.is_tensor(idx):
             idx = idx.tolist()
         idx %= (self.size - self.horizon)
         # idx %= self.size
-        # It returns the entire sequence from x_[idx + 1] to x_[idx+sequence+1]
-        if self.ent_sequence is False:
+        # It returns the whole sequence from x_[idx + 1] to x_[idx+sequence+1]
+        if self.whole_seq is False:
             startpnt = idx
             endpnt = idx + self.win_len
             x = self.data[startpnt:endpnt]
@@ -291,8 +293,8 @@ class TimeseriesLoader(Dataset):
             y = self.data[(startpnt + self.horizon):(endpnt + self.horizon)]
 
         if self.data.ndim == 1:
-            x = expand_dims(x, axis=1)
-            y = expand_dims(y, axis=1)
+            x = np.expand_dims(x, axis=1)
+            y = np.expand_dims(y, axis=1)
 
         if self.augmentation:
             x, y = self.apply_transforms(x, y)
@@ -300,10 +302,11 @@ class TimeseriesLoader(Dataset):
 
 
 def split_timeseries_data(data,
-                          sequence_len=12,
-                          horizon=1,
-                          univariate=False,
-                          torch=True):
+                          train_data_perc: float = 0.8,
+                          sequence_len: int = 12,
+                          horizon: int = 1,
+                          is_univariate: bool = False,
+                          is_torch: bool = True) -> Tuple[torch.tensor]:
     """! This function serves the simple purpose of splitting the time
     series data into training and testing sets. It accepts the raw data
     in a Numpy array and returns Torch tensors with the training and
@@ -335,6 +338,8 @@ def split_timeseries_data(data,
                                   drop_last=True,
                                   pin_memory=True)
 
+    @param train_data_perc represents the percentage of data used for training,
+    with the remainder used for testing.
     @param sequence_len The length of the input sequence (past data) (int)
     @param horizon How many data points into the future should the target
     vector contains (int)
@@ -357,7 +362,7 @@ def split_timeseries_data(data,
         n = 1
     else:
         m, n = data.shape
-    n_train = int(m * 0.8)
+    n_train = int(m * train_data_perc)
     n_test = m - n_train
 
     data_train = data[:n_train].astype('float32')
@@ -366,8 +371,8 @@ def split_timeseries_data(data,
     train_size = n_train - sequence_len - horizon
     if train_size <= sequence_len:
         raise ValueError("Sequence length is too large!")
-    X_train = zeros((train_size, sequence_len, n), 'float32')
-    y_train = zeros((train_size, sequence_len, n), 'float32')
+    X_train = np.zeros((train_size, sequence_len, n), 'float32')
+    y_train = np.zeros((train_size, sequence_len, n), 'float32')
     if n == 1:
         for i in range(n_train-sequence_len-horizon):
             X_train[i, :, 0] = data_train[i:i + sequence_len]
@@ -378,19 +383,19 @@ def split_timeseries_data(data,
             X_train[i] = data_train[i:i + sequence_len]
             y_train[i] = data_train[i + horizon:i + sequence_len + horizon]
 
-    if univariate:
+    if is_univariate:
         X_train = X_train[:, :, 0]
         y_train = y_train[:, -horizon:, 0]
 
-    if torch:
-        X_train = from_numpy(X_train)
-        y_train = from_numpy(y_train)
+    if is_torch:
+        X_train = torch.from_numpy(X_train)
+        y_train = torch.from_numpy(y_train)
 
     test_size = n_test - sequence_len - horizon
     if test_size <= sequence_len:
         raise ValueError("Sequence length is too large!")
-    X_test = zeros((test_size, sequence_len, n), 'float32')
-    y_test = zeros((test_size, sequence_len, n), 'float32')
+    X_test = np.zeros((test_size, sequence_len, n), 'float32')
+    y_test = np.zeros((test_size, sequence_len, n), 'float32')
     if n == 1:
         for i in range(n_test-sequence_len-horizon):
             X_test[i, :, 0] = data_test[i:i + sequence_len]
@@ -400,11 +405,11 @@ def split_timeseries_data(data,
             X_test[i] = data_test[i:sequence_len + i]
             y_test[i] = data_test[i + horizon:i + sequence_len + horizon]
 
-    if univariate:
+    if is_univariate:
         X_test = X_test[:, :, 0]
         y_test = y_test[:, -horizon:, 0]
 
     if torch:
-        X_test = from_numpy(X_test)
-        y_test = from_numpy(y_test)
+        X_test = torch.from_numpy(X_test)
+        y_test = torch.from_numpy(y_test)
     return X_train, y_train, X_test, y_test

@@ -32,10 +32,11 @@ if __name__ == '__main__':
     Y = np.sin(2.*np.pi*t*15) + np.random.normal(0, 0.1, len(t))
 
     X_train, y_train, _, _ = split_timeseries_data(Y,
+                                                   train_data_perc=0.8,
                                                    sequence_len=seq_len,
                                                    horizon=horizon,
-                                                   univariate=False,
-                                                   torch=True)
+                                                   is_univariate=False,
+                                                   is_torch=True)
 
     ts = TensorDataset(X_train, y_train)
     ts_data = DataLoader(ts, batch_size=batch_size, shuffle=False,

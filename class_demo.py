@@ -34,13 +34,13 @@ if __name__ == '__main__':
 
     ts = TimeseriesLoader(data_path,
                           data=Y,
-                          entire_seq=True,
+                          whole_seq=True,
                           power_transform=True,
                           sequence_len=seq_len,
                           horizon=horizon,
                           # transforms=[Jitter()],
                           transforms=None,
-                          dim_size=1)
+                          n_features=1)
 
     ts_data = DataLoader(ts, batch_size=batch_size, shuffle=False,
                          drop_last=True)
