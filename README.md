@@ -32,11 +32,11 @@ In the case of a univariate time series, `n_features = 1`.
 # Instantiate TimeseriesLoader class 
 ts = TimeseriesLoader(data_path,
                       data=Y,
-                      entire_seq=True,
+                      whole_seq=True,
                       power_transform=True,
                       sequence_len=seq_len,
                       horizon=horizon,
-                      dim_size=1)
+                      n_features=1)
                       
 # Pass the ts instance to the Pytorch's DataLoader class
 ts_data = DataLoader(ts, batch_size=batch_size, shuffle=False,
@@ -106,14 +106,14 @@ The user can pass any transform (or many) as an argument (list) to the
 
 ts = TimeseriesLoader(data_path,
                       data=Y,
-                      entire_seq=True,
+                      whole_seq=True,
                       power_transform=True,
                       sequence_len=seq_len,
                       horizon=horizon,
                       transforms=[Jitter(sigma=0.5),
                       			  Permutation()],  # Pass the transforms as a list or None if you don't want to apply any data augmentation
                       transform_prob=0.5,
-                      dim_size=1)
+                      n_features=1)
 ```
 
 Internally, the class will draw a random number from a uniform distribution
