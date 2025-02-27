@@ -65,6 +65,7 @@ class TimeseriesLoader(Dataset):
                  scale_intvl: Tuple[float] = [0, 1],
                  standarize: bool = False,
                  power_transform: bool = False,
+                 differencing: bool = False,
                  noise: bool = False,
                  var: float = 1.0,
                  mulaw: bool = False,
@@ -98,6 +99,8 @@ class TimeseriesLoader(Dataset):
         @param standarize   Standarizes the data (bool)
         @param power_transform  Transforms the data using a Box-Cox transform
         (bool)
+        @param differencing Computes the derivative (difference) of the raw
+        data (i.e., stationarity transformation)
         @param noise Adds white noise with zero mean to the data (bool)
         @param var  The variance of the added white noise
         @param mulaw Performs a mu-law transformation (bool)
@@ -202,6 +205,10 @@ class TimeseriesLoader(Dataset):
         # Apply a mu-law algorithm
         if mulaw is True:
             self.data = muLaw(self.data, self.mu)
+
+        # Apply a differencing transform
+        if differencing is True:
+            self.data = np.diff(self.data, axis=0)
 
         # Convert data Numpy array to Torch Tensor
         self.data = torch.from_numpy(data)

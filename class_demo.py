@@ -39,6 +39,7 @@ if __name__ == '__main__':
                           sequence_len=seq_len,
                           horizon=horizon,
                           # transforms=[Jitter()],
+                          differencing=False,
                           transforms=None,
                           n_features=1)
 
